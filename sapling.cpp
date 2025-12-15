@@ -30,14 +30,16 @@ std::string Sapling::formatLog(LogLevel level, const std::string &message,
     const std::source_location location = std::source_location::current(), bool ANSIIColor = true) {
     
     if (ANSIIColor)
-    return std::format("[{}:{}] {}[{}] {} \033[0m", 
+    return std::format("[{}] [{}:{}] {}[{}] {} \033[0m",
+        getCurrentTime(),
         get_filename(location.file_name()),
         location.line(),
         LogLevelColors[level],
         LogLevelNames[level],
         message);
 
-    return std::format("[{}:{}] [{}] {}", 
+    return std::format("[{}] [{}:{}] [{}] {}", 
+        getCurrentTime(),
         get_filename(location.file_name()),
         location.line(),
         LogLevelNames[level],
