@@ -1,8 +1,9 @@
-#include <source_location>z
+#include <source_location>
 #include <iostream>
 #include <string>
 #include <chrono>
 #include <format>
+#include <mutex>
 
 enum LogLevel{
     DEBUG,
@@ -25,6 +26,8 @@ private:
     bool enableConsoleLogging;
     bool enableColor;
     bool enableTimestamping;
+
+    std::mutex logMutex;
 
     std::string formatLog(LogLevel level, const std::string &message,
         const std::source_location location, 

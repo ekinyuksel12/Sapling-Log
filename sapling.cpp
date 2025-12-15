@@ -12,6 +12,8 @@ Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enable
 
 void Sapling::log(const std::string &message, LogLevel level, std::string OneTimeLogFilePath,
     const std::source_location location) {
+        std::lock_guard<std::mutex> lock(logMutex);
+        
         // If no log file path is set, log to console
         if (this->enableConsoleLogging) {
             printf("%s\n", formatLog(level, message, location, this->enableColor, this->enableTimestamping).c_str());
