@@ -11,7 +11,7 @@ enum LogLevel
 
 static const char* LogLevelNames[] = { "DEBUG", "INFO", "WARNING", "ERROR" };
 
-class sapling {
+class Sapling {
 private:
     
 public:
