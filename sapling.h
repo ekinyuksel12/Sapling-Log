@@ -4,6 +4,7 @@
 #include <chrono>
 #include <format>
 #include <mutex>
+#include <fstream>
 
 enum LogLevel{
     DEBUG,
@@ -28,6 +29,7 @@ private:
     bool enableTimestamping;
 
     std::mutex logMutex;
+    std::ofstream LogFileStream;
 
     std::string formatLog(LogLevel level, const std::string &message,
         const std::source_location location, 
@@ -38,9 +40,21 @@ public:
     Sapling(std::string LogFilePath = "", bool enableConsoleLogging = true,
          bool enableColor = true, bool enableTimestamping = true);
 
-    // Setter for log file path
+    // Destructor to close file stream if open
+    ~Sapling();
+
     void setLogFilePath(std::string LogFilePath) {
         this->LogFilePath = LogFilePath;
+
+        // Close old file if open
+        if (LogFileStream.is_open()) {
+            LogFileStream.close();
+        }
+
+        // Open new file
+        if (!this->LogFilePath.empty()) {
+            LogFileStream.open(this->LogFilePath, std::ios::app);
+        }
     }
 
     void setConsoleLogging(bool enable) {

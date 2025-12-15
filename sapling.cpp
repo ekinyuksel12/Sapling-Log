@@ -1,32 +1,53 @@
 #include <format>
 #include <filesystem>
+#include <fstream>
 
 #include "sapling.h"
 
+// Constructor with default parameters
 Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enableColor, bool enableTimestamping) {
     this->LogFilePath = LogFilePath;
     this->enableConsoleLogging = enableConsoleLogging;
     this->enableColor = enableColor;
     this->enableTimestamping = enableTimestamping;
+
+    // Open the file stream at startup
+    if (!this->LogFilePath.empty()) {
+        LogFileStream.open(this->LogFilePath, std::ios::app); // 'app' mode appends to the file
+    }
+}
+
+// Destructor to close file stream if open
+Sapling::~Sapling() {
+    if (LogFileStream.is_open()) {
+        LogFileStream.close();
+    }
 }
 
 void Sapling::log(const std::string &message, LogLevel level, std::string OneTimeLogFilePath,
     const std::source_location location) {
         std::lock_guard<std::mutex> lock(logMutex);
-        
+
         // If no log file path is set, log to console
         if (this->enableConsoleLogging) {
             printf("%s\n", formatLog(level, message, location, this->enableColor, this->enableTimestamping).c_str());
         }
 
-        // If log file path is set, log to file
-        if (!this->LogFilePath.empty() || !OneTimeLogFilePath.empty()) {
-            FILE* file = fopen(OneTimeLogFilePath.empty() ? this->LogFilePath.c_str() : OneTimeLogFilePath.c_str(), "a");
-            if (file) {
-                // Format the file without ANSI color codes
-                fprintf(file, "%s\n", formatLog(level, message, location, false, this->enableTimestamping).c_str());
-                fclose(file);
+        // One-time specific file (Must open/close separately)
+        if (!OneTimeLogFilePath.empty()) {
+            std::ofstream oneTimeFile(OneTimeLogFilePath, std::ios::app);
+            if (oneTimeFile.is_open()) {
+                // Write to file without ANSI colors
+                oneTimeFile << formatLog(level, message, location, false, this->enableTimestamping) << "\n";
             }
+        } 
+
+        // Main log file (Use persistent stream - FAST)
+        else if (LogFileStream.is_open()) {
+            LogFileStream << formatLog(level, message, location, false, this->enableTimestamping) << "\n";
+
+            // Flush immediately if you want to ensure data is written even on crash
+            LogFileStream.flush(); 
         }
 }
 
