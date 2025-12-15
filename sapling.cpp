@@ -7,7 +7,7 @@ Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enable
     this->enableColor = enableColor;
 }
 
-void Sapling::log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath,
+void Sapling::log(const std::string &message, LogLevel level, std::string OneTimeLogFilePath,
     const std::source_location location) {
         // If no log file path is set, log to console
         if (this->enableConsoleLogging) {

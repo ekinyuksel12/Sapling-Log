@@ -50,6 +50,6 @@ public:
         this->enableColor = enable;
     }
 
-    void log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath = "",
+    void log(const std::string &message, LogLevel level = INFO, std::string OneTimeLogFilePath = "",
         const std::source_location location = std::source_location::current());
 };
