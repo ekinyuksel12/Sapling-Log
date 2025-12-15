@@ -1,5 +1,7 @@
-#include "sapling.h"
 #include <format>
+#include <filesystem>
+
+#include "sapling.h"
 
 Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enableColor, bool enableTimestamping) {
     this->LogFilePath = LogFilePath;
@@ -32,14 +34,22 @@ std::string Sapling::formatLog(LogLevel level, const std::string &message,
     bool ANSIIColor = true, bool timestamp = true) {
 
     std::string currentTime = timestamp ? "[" + getCurrentTime() + "] " : "";
-    std::string fileName = get_filename(location.file_name());
+    std::string fileName = std::filesystem::path(location.file_name()).filename().string();
     std::string color = ANSIIColor ? LogLevelColors[level] : "";
+    std::string ANSIIreset = ANSIIColor ? "\033[0m" : "";
 
-    return std::format("{}[{}:{}] {}[{}] {} \033[0m",
+    return std::format("{}[{}:{}] {}[{}] {} {}",
         currentTime,
         fileName,
         location.line(),
         color,
         LogLevelNames[level],
-        message);
+        message,
+        ANSIIreset);
 }
+
+// Small macros for easier logging
+#define LOG_INFO(sapling, msg) sapling.log(msg, INFO)
+#define LOG_ERR(sapling, msg)  sapling.log(msg, ERROR)
+#define LOG_WARN(sapling, msg) sapling.log(msg, WARNING)
+#define LOG_DEBUG(sapling, msg) sapling.log(msg, DEBUG)
