@@ -1,5 +1,8 @@
-*.exe
-main.cpp
 .vscode/
+build/
+
 *.txt
+*.log
+
+main.cpp
 TODO
