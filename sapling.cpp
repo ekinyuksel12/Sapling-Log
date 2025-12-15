@@ -1,19 +1,17 @@
 #include "sapling.h"
 #include <format>
 
-Sapling::Sapling(std::string LogFilePath) {
-    if (!LogFilePath.empty()) {
-        printf("Log file path set to: %s\n", LogFilePath.c_str());
-    }
-
+Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enableColor) {
     this->LogFilePath = LogFilePath;
+    this->enableConsoleLogging = enableConsoleLogging;
+    this->enableColor = enableColor;
 }
 
-void Sapling::log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath = "",
+void Sapling::log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath,
     const std::source_location location) {
         // If no log file path is set, log to console
-        if (this->LogFilePath.empty() || OneTimeLogFilePath.empty()) {
-            printf("%s\n", formatLog(level, message, location).c_str());
+        if (this->enableConsoleLogging) {
+            printf("%s\n", formatLog(level, message, location, this->enableColor).c_str());
         }
 
         // If log file path is set, log to file
@@ -39,7 +37,6 @@ std::string Sapling::formatLog(LogLevel level, const std::string &message,
         LogLevelNames[level],
         message);
 
-    if (!ANSIIColor)
     return std::format("[{}:{}] [{}] {}", 
         get_filename(location.file_name()),
         location.line(),

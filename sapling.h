@@ -27,14 +27,29 @@ private:
     }
 
     std::string LogFilePath;
+    bool enableConsoleLogging;
+    bool enableColor;
 
     std::string formatLog(LogLevel level, const std::string &message,
         const std::source_location location, 
         bool ANSIIColor);
 
 public:
-    Sapling(std::string LogFilePath = "");
+    Sapling(std::string LogFilePath = "", bool enableConsoleLogging = true, bool enableColor = true);
 
-    void log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath,
+    // Setter for log file path
+    void setLogFilePath(std::string LogFilePath) {
+        this->LogFilePath = LogFilePath;
+    }
+
+    void setConsoleLogging(bool enable) {
+        this->enableConsoleLogging = enable;
+    }
+
+    void setColor(bool enable) {
+        this->enableColor = enable;
+    }
+
+    void log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath = "",
         const std::source_location location = std::source_location::current());
 };
