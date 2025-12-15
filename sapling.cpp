@@ -16,7 +16,7 @@ void Sapling::log(const std::string &message, LogLevel level, std::string OneTim
         }
 
         // If log file path is set, log to file
-        else if (!this->LogFilePath.empty() || !OneTimeLogFilePath.empty()) {
+        if (!this->LogFilePath.empty() || !OneTimeLogFilePath.empty()) {
             FILE* file = fopen(OneTimeLogFilePath.empty() ? this->LogFilePath.c_str() : OneTimeLogFilePath.c_str(), "a");
             if (file) {
                 // Format the file without ANSI color codes
