@@ -17,4 +17,15 @@ private:
 public:
     void log(LogLevel level, const std::string &message,
         const std::source_location location = std::source_location::current());
+
+    constexpr const char* get_filename(const char* path) {
+    const char* file = path;
+    while (*path) {
+        if (*path == '/' || *path == '\\') {
+            file = path + 1;
+        }
+        path++;
+    }
+    return file;
+}
 };
