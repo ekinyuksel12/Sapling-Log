@@ -56,6 +56,27 @@ int main() {
 }
 ```
 
+## Advanced Configuration (File Logging)
+```C++
+#include "sapling.hpp"
+
+int main() {
+    // Configure settings
+    SaplingConfig config;
+    config.logFilePath = "app.log";
+    config.enableConsole = true;
+    config.enableTimestamp = true;
+
+    Sapling logger(config);
+
+    logger.log("This goes to both console and file");
+    
+    // Runtime reconfiguration
+    config.logFilePath = "new_log.txt";
+    logger.updateConfig(config); // Automatically closes old file, opens new one
+}
+```
+
 ## Requirements
 
-    C++20 compatible compiler (GCC 11+, Clang 13+, MSVC 2019 16.10+)
+C++20 compatible compiler (GCC 11+, Clang 13+, MSVC 2019 16.10+)
