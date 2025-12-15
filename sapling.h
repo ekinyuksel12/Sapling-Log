@@ -36,13 +36,16 @@ private:
     std::string LogFilePath;
     bool enableConsoleLogging;
     bool enableColor;
+    bool enableTimestamping;
 
     std::string formatLog(LogLevel level, const std::string &message,
         const std::source_location location, 
-        bool ANSIIColor);
+        bool ANSIIColor, bool timestamp);
 
 public:
-    Sapling(std::string LogFilePath = "", bool enableConsoleLogging = true, bool enableColor = true);
+    // Constructor with default parameters
+    Sapling(std::string LogFilePath = "", bool enableConsoleLogging = true,
+         bool enableColor = true, bool enableTimestamping = true);
 
     // Setter for log file path
     void setLogFilePath(std::string LogFilePath) {
@@ -55,6 +58,10 @@ public:
 
     void setColor(bool enable) {
         this->enableColor = enable;
+    }
+
+    void setTimestamping(bool enable) {
+        this->enableTimestamping = enable;
     }
 
     void log(const std::string &message, LogLevel level = INFO, std::string OneTimeLogFilePath = "",
