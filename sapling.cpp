@@ -9,16 +9,16 @@ Sapling::Sapling(std::string LogFilePath) {
     this->LogFilePath = LogFilePath;
 }
 
-void Sapling::log(LogLevel level, const std::string &message,
+void Sapling::log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath = "",
     const std::source_location location) {
         // If no log file path is set, log to console
-        if (this->LogFilePath.empty()) {
+        if (this->LogFilePath.empty() || OneTimeLogFilePath.empty()) {
             printf("%s\n", formatLog(level, message, location).c_str());
         }
 
         // If log file path is set, log to file
-        else if (!this->LogFilePath.empty()) {
-            FILE* file = fopen(this->LogFilePath.c_str(), "a");
+        else if (!this->LogFilePath.empty() || !OneTimeLogFilePath.empty()) {
+            FILE* file = fopen(OneTimeLogFilePath.empty() ? this->LogFilePath.c_str() : OneTimeLogFilePath.c_str(), "a");
             if (file) {
                 // Format the file without ANSI color codes
                 fprintf(file, "%s\n", formatLog(level, message, location, false).c_str());

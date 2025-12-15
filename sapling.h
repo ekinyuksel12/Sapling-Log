@@ -35,6 +35,6 @@ private:
 public:
     Sapling(std::string LogFilePath = "");
 
-    void log(LogLevel level, const std::string &message,
+    void log(LogLevel level, const std::string &message, std::string OneTimeLogFilePath,
         const std::source_location location = std::source_location::current());
 };
