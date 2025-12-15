@@ -10,6 +10,7 @@ enum LogLevel
 };
 
 static const char* LogLevelNames[] = { "DEBUG", "INFO", "WARNING", "ERROR" };
+static const char* LogLevelColors[] = { "\033[0;37m", "\033[0;32m", "\033[0;33m", "\033[0;31m" };
 
 class Sapling {
 private:
