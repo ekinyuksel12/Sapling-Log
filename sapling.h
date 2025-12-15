@@ -26,10 +26,15 @@ private:
         return file_name;
     }
 
+    std::string LogFilePath;
+
     std::string formatLog(LogLevel level, const std::string &message,
-        const std::source_location location = std::source_location::current());
-        
+        const std::source_location location, 
+        bool ANSIIColor);
+
 public:
+    Sapling(std::string LogFilePath = "");
+
     void log(LogLevel level, const std::string &message,
         const std::source_location location = std::source_location::current());
 };
