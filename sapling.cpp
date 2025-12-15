@@ -4,62 +4,108 @@
 
 #include "sapling.h"
 
-// Constructor with default parameters
-Sapling::Sapling(std::string LogFilePath, bool enableConsoleLogging, bool enableColor, bool enableTimestamping) {
-    this->LogFilePath = LogFilePath;
-    this->enableConsoleLogging = enableConsoleLogging;
-    this->enableColor = enableColor;
-    this->enableTimestamping = enableTimestamping;
+// Helper functions
+// Function to strip ANSI color codes from a string
+std::string stripAnsiCodes(const std::string& input) {
+    std::string output = input;
+    const std::string start_sequence = "\033[";
 
-    // Open the file stream at startup
-    if (!this->LogFilePath.empty()) {
-        LogFileStream.open(this->LogFilePath, std::ios::app); // 'app' mode appends to the file
+    size_t pos = 0;
+    while ((pos = output.find(start_sequence, pos)) != std::string::npos) {
+        // Find the ending 'm' character
+        size_t end_pos = output.find('m', pos);
+
+        if (end_pos != std::string::npos) {
+            // Erase the sequence, including the starting '\033[' and the ending 'm'
+            output.erase(pos, end_pos - pos + 1);
+        } else {
+            // If the sequence is malformed (no ending 'm'), skip past the start and continue search
+            pos += start_sequence.length();
+        }
+    }
+    return output;
+}
+
+// Function to get current time as string
+std::string getCurrentTime() {
+    auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+    return std::format("{:%Y-%m-%d %X}", time);
+}
+
+
+
+// Constructor with default parameters
+Sapling::Sapling(SaplingConfig config) : m_config(config) {
+    if (!m_config.logFilePath.empty()) {
+        m_logFileStream.open(m_config.logFilePath, std::ios::app);
     }
 }
 
 // Destructor to close file stream if open
 Sapling::~Sapling() {
-    if (LogFileStream.is_open()) {
-        LogFileStream.close();
+    if (m_logFileStream.is_open()) {
+        m_logFileStream.close();
     }
 }
 
-void Sapling::log(const std::string &message, LogLevel level, std::string OneTimeLogFilePath,
-    const std::source_location location) {
-        std::lock_guard<std::mutex> lock(logMutex);
+void Sapling::log(const std::string &message, LogLevel level, 
+        const std::source_location location) {
 
-        // If no log file path is set, log to console
-        if (this->enableConsoleLogging) {
-            printf("%s\n", formatLog(level, message, location, this->enableColor, this->enableTimestamping).c_str());
+        // Thread-safe logging using mutex
+        std::lock_guard<std::mutex> lock(m_logMutex);
+
+        std::string logMessage = formatLog(level, message, location);
+
+        // Log to console if enabled
+        if (m_config.enableConsole) {
+            // Create the log message
+            std::cout << logMessage << std::endl;
         }
 
-        // One-time specific file (Must open/close separately)
-        if (!OneTimeLogFilePath.empty()) {
-            std::ofstream oneTimeFile(OneTimeLogFilePath, std::ios::app);
-            if (oneTimeFile.is_open()) {
-                // Write to file without ANSI colors
-                oneTimeFile << formatLog(level, message, location, false, this->enableTimestamping) << "\n";
-            }
-        } 
-
-        // Main log file (Use persistent stream - FAST)
-        else if (LogFileStream.is_open()) {
-            LogFileStream << formatLog(level, message, location, false, this->enableTimestamping) << "\n";
-
-            // Flush immediately if you want to ensure data is written even on crash
-            LogFileStream.flush(); 
+        // Log to file if path is set
+        if (m_logFileStream.is_open()) {
+            m_logFileStream << stripAnsiCodes(logMessage) << "\n";
         }
 }
 
-// Example: [main.cpp:6] [INFO] This is an informational message.
-std::string Sapling::formatLog(LogLevel level, const std::string &message,
-    const std::source_location location = std::source_location::current(), 
-    bool ANSIIColor = true, bool timestamp = true) {
+void Sapling::updateConfig(const SaplingConfig& newConfig) {
+    // Use mutex for thread safety during reconfiguration
+    std::lock_guard<std::mutex> lock(m_logMutex);
 
-    std::string currentTime = timestamp ? "[" + getCurrentTime() + "] " : "";
+    // Check if the log file path has changed. If so, handle file stream accordingly.
+    if (m_config.logFilePath != newConfig.logFilePath) {
+        // Close the old stream, if it was open
+        if (m_logFileStream.is_open()) {
+            m_logFileStream.close();
+        }
+
+        // Update the configuration
+        m_config = newConfig;
+
+        // Open the new stream, if a new path is provided
+        if (!m_config.logFilePath.empty()) {
+            m_logFileStream.open(m_config.logFilePath, std::ios::app);
+            // Error handling: Check if the new file opened successfully
+            if (!m_logFileStream.is_open()) {
+                // Log an error to console or throw, as file logging will fail
+                std::cerr << "[Error] Sapling failed to open new log file: " << m_config.logFilePath << std::endl;
+            }
+        }
+    } else {
+        // If the path didn't change, just update the rest of the config settings
+        m_config = newConfig;
+    }
+}
+
+// Example: [main.cpp:6] [INFO] This is an informational message.
+std::string Sapling::formatLog(LogLevel level, const std::string &message, const std::source_location location) {
+    std::string currentTime = m_config.enableTimestamp ? "[" + getCurrentTime() + "] " : "";
+
     std::string fileName = std::filesystem::path(location.file_name()).filename().string();
-    std::string color = ANSIIColor ? LogLevelColors[level] : "";
-    std::string ANSIIreset = ANSIIColor ? "\033[0m" : "";
+
+    // Setup color codes if enabled
+    std::string color = m_config.enableColor ? LogLevelColors[level] : "";
+    std::string ANSIIreset = m_config.enableColor ? "\033[0m" : "";
 
     return std::format("{}[{}:{}] {}[{}] {} {}",
         currentTime,
