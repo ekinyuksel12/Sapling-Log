@@ -30,6 +30,10 @@ struct SaplingConfig {
     bool enableConsole = true;
     bool enableColor = true;
     bool enableTimestamp = true;
+
+    // File Rotation Settings
+    bool enableFileRotation = false;
+    size_t maxFileSizeKB = 5120; // Default is 5 MB
 };
 
 // --- Main Class ---
@@ -57,14 +61,39 @@ private:
     }
 
     // Helper: Get formatted time
-    std::string getCurrentTime() {
+    std::string getCurrentTimestamp() {
         auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
         return std::format("{:%Y-%m-%d %X}", time);
     }
 
+    // Helper: Get file-safe timestamp
+    std::string getFileSafeTimestamp() {
+        auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+        return std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+    }
+
+    // Helper: 
+    void rotateFileIfNeeded() {
+        // Check if rotation is enabled and file is open
+        if (!m_config.enableFileRotation || !m_logFileStream.is_open()) return;
+
+        // Check current file size
+        long currentSize = m_logFileStream.tellp(); // We use tellp to get the size
+        if (currentSize < 0) return; // Unable to get size
+
+        if (currentSize >= (long)m_config.maxFileSizeKB * 1024) {
+            m_logFileStream.close();
+
+            std::string newFileName = m_config.logFilePath + "." + getFileSafeTimestamp();
+            std::filesystem::rename(m_config.logFilePath, newFileName);
+
+            m_logFileStream.open(m_config.logFilePath, std::ios::app);
+        }
+    }
+
     // Internal formatter
     std::string formatLog(LogLevel level, const std::string &message, const std::source_location location) {
-        std::string currentTime = m_config.enableTimestamp ? "[" + getCurrentTime() + "] " : "";
+        std::string currentTime = m_config.enableTimestamp ? "[" + getCurrentTimestamp() + "] " : "";
         std::string fileName = std::filesystem::path(location.file_name()).filename().string();
         std::string color = m_config.enableColor ? LogLevelColors[level] : "";
         std::string ANSIIreset = m_config.enableColor ? "\033[0m" : "";
@@ -111,7 +140,7 @@ public:
     void log(const std::string &message, LogLevel level = INFO,
              const std::source_location location = std::source_location::current()) {
         std::lock_guard<std::mutex> lock(m_logMutex);
-
+        
         std::string logMessage = formatLog(level, message, location);
 
         if (m_config.enableConsole) {
@@ -119,15 +148,17 @@ public:
         }
 
         if (m_logFileStream.is_open()) {
+            rotateFileIfNeeded();
+
             m_logFileStream << stripAnsiCodes(logMessage) << "\n";
         }
     }
 };
 
 // --- Macros ---
-#define LOG_INFO(sapling, msg) sapling.log(msg, INFO)
-#define LOG_ERR(sapling, msg)  sapling.log(msg, ERROR)
-#define LOG_WARN(sapling, msg) sapling.log(msg, WARNING)
-#define LOG_DEBUG(sapling, msg) sapling.log(msg, DEBUG)
+#define LOG_INFO(msg) log(msg, INFO)
+#define LOG_ERR(msg)  log(msg, ERROR)
+#define LOG_WARN(msg) log(msg, WARNING)
+#define LOG_DEBUG(msg) log(msg, DEBUG)
 
 #endif // SAPLING_HPP
