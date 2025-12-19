@@ -81,11 +81,16 @@ private:
         auto const now = std::chrono::system_clock::now();
         auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
         std::string timeStamp;
-        
+
         if (m_config.showMicroseconds) {
-            // Use full precision (e.g., 2023-10-25_14-30-05.123456)
+            // Manually calculate microseconds to ensure they appear in the filename
+            // and avoid colons (which breaks Windows).
             auto const time = std::chrono::current_zone()->to_local(now);
-            timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+            auto duration = now.time_since_epoch();
+            auto micros = std::chrono::duration_cast<std::chrono::microseconds>(duration).count() % 1000000;
+            
+            // Format: YYYY-MM-DD_HH-MM-SS.123456
+            timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}.{:06}", time, micros);
         } else {
             // Strip to seconds (e.g., 2023-10-25_14-30-05)
             auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
@@ -111,9 +116,18 @@ private:
     // Helper: Get formatted time
     std::string getCurrentTimestamp() {
         auto const now = std::chrono::system_clock::now();
-        auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
         
-        return std::format("{:%Y-%m-%d %H:%M:%S}", time);
+        if (m_config.showMicroseconds) {
+             auto const time = std::chrono::current_zone()->to_local(now);
+             auto duration = now.time_since_epoch();
+             auto micros = std::chrono::duration_cast<std::chrono::microseconds>(duration).count() % 1000000;
+             
+             // Format: YYYY-MM-DD HH:MM:SS.123456
+             return std::format("{:%Y-%m-%d %H:%M:%S}", time, micros);
+        } else {
+             auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
+             return std::format("{:%Y-%m-%d %H:%M:%S}", time);
+        }
     }
 
     void setNextRotationTime() {
@@ -171,7 +185,21 @@ private:
 public:
     // Constructor
     explicit Sapling(SaplingConfig config = SaplingConfig()) : m_config(config) {
-        if (m_config.enableFileLogging && !m_config.logFileDirectory.empty()) {
+        if (!m_config.logFileDirectory.empty()) {
+            try {
+                // Check if directory exists; if not, create it recursively
+                if (!std::filesystem::exists(m_config.logFileDirectory)) {
+                    std::filesystem::create_directories(m_config.logFileDirectory);
+                }
+            } catch (const std::filesystem::filesystem_error& e) {
+                // If creation fails (e.g., permission denied), log error and disable file logging
+                std::cerr << "[Sapling] Error creating log directory: " << e.what() << std::endl;
+                m_config.enableFileLogging = false; 
+            }
+        }
+
+        // Open log file if file logging is enabled
+        if (m_config.enableFileLogging) {
             std::filesystem::path dir(m_config.logFileDirectory);
             std::filesystem::path file(generateNewLogFilename());
 
