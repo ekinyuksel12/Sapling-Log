@@ -26,7 +26,11 @@ inline constexpr const char* LogLevelColors[] = { "\033[0;37m", "\033[0;32m", "\
 // --- Configuration Struct ---
 
 struct SaplingConfig {
-    std::string logFilePath = "";
+    std::string logName = "sapling";
+    std::string logFileDirectory = ".";
+    std::string logFileExtension = "log";
+
+    bool enableFileLogging = true;
     bool enableConsole = true;
     bool enableColor = true;
     bool enableTimestamp = true;
@@ -49,6 +53,8 @@ private:
     SaplingConfig m_config;
     std::mutex m_logMutex;
     std::ofstream m_logFileStream;
+    std::string m_lastLogPath;
+
     std::chrono::system_clock::time_point m_nextRotationTime;
 
     // Helper: Strip ANSI codes for file writing
@@ -67,16 +73,18 @@ private:
         return output;
     }
 
+    // Helper: Get log file name
+    std::string generateNewLogFilename() {
+        auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+        std::string timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+
+        return m_config.logFileDirectory + m_config.logName + "." + timeStamp + "." + m_config.logFileExtension;
+    }
+
     // Helper: Get formatted time
     std::string getCurrentTimestamp() {
         auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
         return std::format("{:%Y-%m-%d %X}", time);
-    }
-
-    // Helper: Get file-safe timestamp
-    std::string getFileSafeTimestamp() {
-        auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
-        return std::format("{:%Y-%m-%d_%H-%M-%S}", time);
     }
 
     void setNextRotationTime() {
@@ -96,10 +104,11 @@ private:
             setNextRotationTime();
             m_logFileStream.close();
 
-            std::string newFileName = m_config.logFilePath + "." + getFileSafeTimestamp();
-            std::filesystem::rename(m_config.logFilePath, newFileName);
+            std::string newFileName = generateNewLogFilename();
+            std::filesystem::rename(m_lastLogPath, newFileName);
 
-            m_logFileStream.open(m_config.logFilePath, std::ios::app);
+            m_logFileStream.open(m_lastLogPath, std::ios::app);
+            m_lastLogPath = newFileName;
         }
 
         // Check for file size-based rotation
@@ -111,10 +120,11 @@ private:
             if (currentSize >= (long)m_config.maxFileSizeKB * 1024) {
                 m_logFileStream.close();
 
-                std::string newFileName = m_config.logFilePath + "." + getFileSafeTimestamp();
-                std::filesystem::rename(m_config.logFilePath, newFileName);
+                std::string newFileName = generateNewLogFilename();
+                std::filesystem::rename(m_lastLogPath, newFileName);
 
-                m_logFileStream.open(m_config.logFilePath, std::ios::app);
+                m_logFileStream.open(m_lastLogPath, std::ios::app);
+                m_lastLogPath = newFileName;
             }
         }
     }
@@ -133,8 +143,23 @@ private:
 public:
     // Constructor
     explicit Sapling(SaplingConfig config = SaplingConfig()) : m_config(config) {
-        if (!m_config.logFilePath.empty()) {
-            m_logFileStream.open(m_config.logFilePath, std::ios::app);
+        if (m_config.enableFileLogging && !m_config.logFileDirectory.empty()) {
+            try {
+                if (!std::filesystem::exists(m_config.logFileDirectory)) {
+                    std::filesystem::create_directories(m_config.logFileDirectory);
+                }
+            } catch (const std::filesystem::filesystem_error& e) {
+                std::cerr << "[Sapling] Error creating log directory: " << e.what() << std::endl;
+                // Disable file logging to prevent further crashes since the directory is invalid
+                m_config.enableFileLogging = false; 
+            }
+
+            // Ensure the log file directory ends with a separator
+            if (m_config.logFileDirectory.back() != '/') m_config.logFileDirectory += "/";
+
+            m_lastLogPath = generateNewLogFilename();
+
+            m_logFileStream.open(m_lastLogPath, std::ios::app);
         }
 
         // Calculate the next rotation time if interval-based rotation is enabled
@@ -147,25 +172,6 @@ public:
     ~Sapling() {
         if (m_logFileStream.is_open()) {
             m_logFileStream.close();
-        }
-    }
-
-    // Configuration Updater
-    void updateConfig(const SaplingConfig& newConfig) {
-        std::lock_guard<std::mutex> lock(m_logMutex);
-        if (m_config.logFilePath != newConfig.logFilePath) {
-            if (m_logFileStream.is_open()) m_logFileStream.close();
-            
-            m_config = newConfig; // Apply new config
-            
-            if (!m_config.logFilePath.empty()) {
-                m_logFileStream.open(m_config.logFilePath, std::ios::app);
-                if (!m_logFileStream.is_open()) {
-                    std::cerr << "[Error] Sapling failed to open new log file: " << m_config.logFilePath << std::endl;
-                }
-            }
-        } else {
-            m_config = newConfig;
         }
     }
 
