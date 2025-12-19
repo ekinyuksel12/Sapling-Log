@@ -35,6 +35,11 @@ struct SaplingConfig {
     bool enableFileRotation = false;
     size_t maxFileSizeKB = 0; // 0KB means file size rotation is disabled
     std::chrono::seconds rotationInterval = std::chrono::seconds(0); // 0 seconds means time-based rotation is disabled
+
+    // Log Filtering Level
+    // With the order: DEBUG < INFO < WARNING < ERROR
+    LogLevel consoleLogLevel = DEBUG;
+    LogLevel fileLogLevel = DEBUG;
 };
 
 // --- Main Class ---
@@ -172,10 +177,14 @@ public:
         std::string logMessage = formatLog(level, message, location);
 
         if (m_config.enableConsole) {
+            if (level < m_config.consoleLogLevel) return; // Skip console log
+
             std::cout << logMessage << std::endl;
         }
 
         if (m_logFileStream.is_open()) {
+            if (level < m_config.fileLogLevel) return; // Skip file log
+            
             rotateFileIfNeeded(); // Check for rotation before writing
 
             m_logFileStream << stripAnsiCodes(logMessage) << "\n";
