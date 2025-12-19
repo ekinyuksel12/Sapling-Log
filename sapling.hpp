@@ -34,6 +34,7 @@ struct SaplingConfig {
     bool enableConsole = true;
     bool enableColor = true;
     bool enableTimestamp = true;
+    bool showMicroseconds = false;
 
     // File Rotation Settings
     bool enableFileRotation = false;
@@ -54,6 +55,8 @@ private:
     std::mutex m_logMutex;
     std::ofstream m_logFileStream;
     std::string m_lastLogPath;
+    std::string m_lastRotationTimestamp = "";
+    size_t m_sequenceCounter = 0;
 
     std::chrono::system_clock::time_point m_nextRotationTime;
 
@@ -75,16 +78,34 @@ private:
 
     // Helper: Get log file name
     std::string generateNewLogFilename() {
-        auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+        auto const now = std::chrono::system_clock::now();
+        auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
+        
+        // Format: YYYY-MM-DD_HH-MM-SS (No colons for Windows compatibility)
         std::string timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
 
-        return m_config.logFileDirectory + m_config.logName + "." + timeStamp + "." + m_config.logFileExtension;
+        // Check if we are still in the same second as the last file
+        std::string suffix = "";
+        
+        if (timeStamp == m_lastRotationTimestamp) {
+            m_sequenceCounter++;
+            suffix = std::format("_{}", m_sequenceCounter);
+        } else {
+            m_lastRotationTimestamp = timeStamp;
+            m_sequenceCounter = 0;
+            suffix = "";
+        }
+
+        // Result: name.2023-10-25_12-00-00.log OR name.2023-10-25_12-00-00_1.log
+        return m_config.logName + "." + timeStamp + suffix + "." + m_config.logFileExtension;
     }
 
     // Helper: Get formatted time
     std::string getCurrentTimestamp() {
-        auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
-        return std::format("{:%Y-%m-%d %X}", time);
+        auto const now = std::chrono::system_clock::now();
+        auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
+        
+        return std::format("{:%Y-%m-%d %H:%M:%S}", time);
     }
 
     void setNextRotationTime() {
@@ -96,36 +117,35 @@ private:
 
     // Helper: Rotate log file if needed
     void rotateFileIfNeeded() {
-        // Check if rotation is enabled and file is open
         if (!m_config.enableFileRotation || !m_logFileStream.is_open()) return;
 
-        // Check for time-based rotation
+        bool shouldRotate = false;
+        
+        // Check Time
         if (m_config.rotationInterval.count() > 0 && std::chrono::system_clock::now() >= m_nextRotationTime) {
             setNextRotationTime();
-            m_logFileStream.close();
-
-            std::string newFileName = generateNewLogFilename();
-            std::filesystem::rename(m_lastLogPath, newFileName);
-
-            m_logFileStream.open(m_lastLogPath, std::ios::app);
-            m_lastLogPath = newFileName;
+            shouldRotate = true;
         }
 
-        // Check for file size-based rotation
-        if (m_config.maxFileSizeKB > 0) {
-            m_logFileStream.flush();
-            long currentSize = m_logFileStream.tellp(); // We use tellp to get the size
-            if (currentSize < 0) return; // Unable to get size
-
+        // Check Size
+        else if (m_config.maxFileSizeKB > 0) {
+            long currentSize = m_logFileStream.tellp();
             if (currentSize >= (long)m_config.maxFileSizeKB * 1024) {
-                m_logFileStream.close();
-
-                std::string newFileName = generateNewLogFilename();
-                std::filesystem::rename(m_lastLogPath, newFileName);
-
-                m_logFileStream.open(m_lastLogPath, std::ios::app);
-                m_lastLogPath = newFileName;
+                shouldRotate = true;
             }
+        }
+
+        if (shouldRotate) {
+            // Close the old file
+            m_logFileStream.close();
+
+            // Generate NEW path for NEW file
+            std::filesystem::path dir(m_config.logFileDirectory);
+            std::filesystem::path file(generateNewLogFilename());
+            m_lastLogPath = (dir / file).string();
+
+            // Open the NEW file
+            m_logFileStream.open(m_lastLogPath, std::ios::app);
         }
     }
 
