@@ -80,9 +80,17 @@ private:
     std::string generateNewLogFilename() {
         auto const now = std::chrono::system_clock::now();
         auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
+        std::string timeStamp;
         
-        // Format: YYYY-MM-DD_HH-MM-SS (No colons for Windows compatibility)
-        std::string timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+        if (m_config.showMicroseconds) {
+            // Use full precision (e.g., 2023-10-25_14-30-05.123456)
+            auto const time = std::chrono::current_zone()->to_local(now);
+            timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+        } else {
+            // Strip to seconds (e.g., 2023-10-25_14-30-05)
+            auto const time = std::chrono::current_zone()->to_local(std::chrono::floor<std::chrono::seconds>(now));
+            timeStamp = std::format("{:%Y-%m-%d_%H-%M-%S}", time);
+        }
 
         // Check if we are still in the same second as the last file
         std::string suffix = "";
