@@ -33,7 +33,8 @@ struct SaplingConfig {
 
     // File Rotation Settings
     bool enableFileRotation = false;
-    size_t maxFileSizeKB = 5120; // Default is 5 MB
+    size_t maxFileSizeKB = 0; // 0KB means file size rotation is disabled
+    std::chrono::seconds rotationInterval = std::chrono::seconds(0); // 0 seconds means time-based rotation is disabled
 };
 
 // --- Main Class ---
@@ -43,6 +44,7 @@ private:
     SaplingConfig m_config;
     std::mutex m_logMutex;
     std::ofstream m_logFileStream;
+    std::chrono::system_clock::time_point m_nextRotationTime;
 
     // Helper: Strip ANSI codes for file writing
     std::string stripAnsiCodes(const std::string& input) {
@@ -72,22 +74,43 @@ private:
         return std::format("{:%Y-%m-%d_%H-%M-%S}", time);
     }
 
-    // Helper: 
+    void setNextRotationTime() {
+        m_nextRotationTime = std::chrono::system_clock::now() + m_config.rotationInterval;
+        std::cout << "[Info] Next log rotation scheduled at: " 
+                    << std::format("{:%Y-%m-%d %X}", std::chrono::current_zone()->to_local(m_nextRotationTime)) 
+                    << std::endl;
+    }
+
+    // Helper: Rotate log file if needed
     void rotateFileIfNeeded() {
         // Check if rotation is enabled and file is open
         if (!m_config.enableFileRotation || !m_logFileStream.is_open()) return;
 
-        // Check current file size
-        long currentSize = m_logFileStream.tellp(); // We use tellp to get the size
-        if (currentSize < 0) return; // Unable to get size
-
-        if (currentSize >= (long)m_config.maxFileSizeKB * 1024) {
+        // Check for time-based rotation
+        if (m_config.rotationInterval.count() > 0 && std::chrono::system_clock::now() >= m_nextRotationTime) {
+            setNextRotationTime();
             m_logFileStream.close();
 
             std::string newFileName = m_config.logFilePath + "." + getFileSafeTimestamp();
             std::filesystem::rename(m_config.logFilePath, newFileName);
 
             m_logFileStream.open(m_config.logFilePath, std::ios::app);
+        }
+
+        // Check for file size-based rotation
+        if (m_config.maxFileSizeKB > 0) {
+            m_logFileStream.flush();
+            long currentSize = m_logFileStream.tellp(); // We use tellp to get the size
+            if (currentSize < 0) return; // Unable to get size
+
+            if (currentSize >= (long)m_config.maxFileSizeKB * 1024) {
+                m_logFileStream.close();
+
+                std::string newFileName = m_config.logFilePath + "." + getFileSafeTimestamp();
+                std::filesystem::rename(m_config.logFilePath, newFileName);
+
+                m_logFileStream.open(m_config.logFilePath, std::ios::app);
+            }
         }
     }
 
@@ -107,6 +130,11 @@ public:
     explicit Sapling(SaplingConfig config = SaplingConfig()) : m_config(config) {
         if (!m_config.logFilePath.empty()) {
             m_logFileStream.open(m_config.logFilePath, std::ios::app);
+        }
+
+        // Calculate the next rotation time if interval-based rotation is enabled
+        if (m_config.enableFileRotation && m_config.rotationInterval.count() > 0) {
+            setNextRotationTime();
         }
     }
 
@@ -148,7 +176,7 @@ public:
         }
 
         if (m_logFileStream.is_open()) {
-            rotateFileIfNeeded();
+            rotateFileIfNeeded(); // Check for rotation before writing
 
             m_logFileStream << stripAnsiCodes(logMessage) << "\n";
         }
