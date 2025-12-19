@@ -164,21 +164,10 @@ public:
     // Constructor
     explicit Sapling(SaplingConfig config = SaplingConfig()) : m_config(config) {
         if (m_config.enableFileLogging && !m_config.logFileDirectory.empty()) {
-            try {
-                if (!std::filesystem::exists(m_config.logFileDirectory)) {
-                    std::filesystem::create_directories(m_config.logFileDirectory);
-                }
-            } catch (const std::filesystem::filesystem_error& e) {
-                std::cerr << "[Sapling] Error creating log directory: " << e.what() << std::endl;
-                // Disable file logging to prevent further crashes since the directory is invalid
-                m_config.enableFileLogging = false; 
-            }
+            std::filesystem::path dir(m_config.logFileDirectory);
+            std::filesystem::path file(generateNewLogFilename());
 
-            // Ensure the log file directory ends with a separator
-            if (m_config.logFileDirectory.back() != '/') m_config.logFileDirectory += "/";
-
-            m_lastLogPath = generateNewLogFilename();
-
+            m_lastLogPath = (dir / file).string();
             m_logFileStream.open(m_lastLogPath, std::ios::app);
         }
 
