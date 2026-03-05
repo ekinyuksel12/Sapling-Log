@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.jpg" alt="Sapling Logo" width="180"/>
+  <img src="icon.jpg" alt="Sapling Logo" width="300"/>
 </p>
 
 <h1 align="center">Sapling Logger 🌱</h1>
