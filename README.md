@@ -21,6 +21,11 @@
 
 **Sapling** is a zero-dependency, header-only logging library for C++20. Drop a single file into your project and get color-coded console output, automatic file logging with rotation, thread-safe writes, and source-location tracking — all out of the box.
 
+In distributed systems and high-frequency environments, logging I/O is often a massive bottleneck. Sapling-Log was engineered to solve this by providing a lightweight, lock-optimized logging pipeline. 
+* **Zero-Dependency Architecture:** Eliminates supply chain risks and bloat, making it ideal for embedded systems and strict enterprise environments.
+* **Concurrency Optimized:** Thread-safe execution using modern C++20 synchronization primitives, ensuring telemetry is accurately captured without race conditions.
+* **Automated Data Lifecycle:** Built-in log rotation (size/time-based) prevents storage saturation and server crashes in production environments.
+
 ---
 
 ## Features
